@@ -225,9 +225,12 @@ if __name__ == "__main__":
 
     tab1 = ttk.Frame(tab_control)
     tab2 = ttk.Frame(tab_control)
+    tab_calibration = ttk.Frame(tab_control)  # New Calibration tab
+
 
     tab_control.add(tab1, text='Console Control')
     tab_control.add(tab2, text='Open File Dialog')
+    tab_control.add(tab_calibration, text='Calibration')  # Add new tab
     tab_control.pack(expand=1, fill='both')
 
     # Tab 1
@@ -311,6 +314,38 @@ if __name__ == "__main__":
 
     send_button = ttk.Button(frame2, text="Send", command=switch_to_tab1)
     send_button.grid(row=5, column=1, pady=10, sticky='ew')
+
+    # Tab Calibration
+    frame_calibration = ttk.Frame(tab_calibration)
+    frame_calibration.pack(padx=10, pady=10, fill='both', expand=True)
+    
+    # Add calibration widgets here
+    calibration_label = ttk.Label(frame_calibration, text="Calibration Grid Size")
+    calibration_label.grid(row=0, column=0, columnspan=3, pady=5, sticky='w')
+
+    calibration_options = ["3x3", "5x5", "9x9", "17x17"]
+    calibration_var = tk.StringVar(value=calibration_options[0])
+
+    calibration_dropdown = ttk.Combobox(frame_calibration, textvariable=calibration_var, values=calibration_options)
+    calibration_dropdown.grid(row=0, column=3, columnspan=4, pady=5, sticky='ew')
+    
+    def create_calibration_grid(size):
+        for widget in frame_calibration.grid_slaves():
+            if int(widget.grid_info()["row"]) > 0:
+                widget.grid_forget()
+
+        grid_size = int(size.split('x')[0])
+        for i in range(grid_size):
+            for j in range(grid_size):
+                entry = ttk.Entry(frame_calibration, width=5)
+                entry.grid(row=i + 1, column=j, padx=5, pady=5)
+
+    def on_calibration_option_change(event):
+        print
+        create_calibration_grid(calibration_var.get())
+
+    calibration_dropdown.bind("<<ComboboxSelected>>", on_calibration_option_change)
+    create_calibration_grid(calibration_var.get())
 
     dot_distance = 1.0
     image_scale = 1.0
