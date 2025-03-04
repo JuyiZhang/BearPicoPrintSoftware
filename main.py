@@ -7,10 +7,22 @@ import zipfile
 import os
 import cv2
 from PIL import Image, ImageTk
-from ttkthemes import ThemedTk
+
+import platform
+from numerical.util import printer   # <-- add printer import
+
+if platform.system() != "Darwin":
+    from ttkthemes import ThemedTk
+else:
+    from tkinter import Tk as ThemedTk
+
+# Global printer instance with default configuration
+printer_instance = printer(15, 10)   # default values
+print_command = ""
 
 def start_print():
     print("Starting print...")
+    printer_instance.executeCommand()
 
 def print_input():
     user_input = entry1.get()
@@ -207,6 +219,56 @@ def save_dots():
 def switch_to_tab1():
     tab_control.select(tab1)
 
+def generate_pattern_to_print():
+    print("Generating pattern to print...")
+    printer_instance.clearCommand()
+    text_fpga_command.delete(1.0, tk.END)
+
+    # Get the selected grid size
+    grid_size = int(calibration_var.get()[0])
+    print(f"Selected grid size: {grid_size}")
+    
+    grid_distance = float(calibration_pattern_distance_entry.get())
+    print(f"Pattern distance: {grid_distance}")
+    
+    global proceed_without_error
+    proceed_without_error = True
+    for i in range(grid_size):
+        for j in range(grid_size):
+            print(proceed_without_error)
+            voltages = printer_instance.toU((i-(grid_size-1)/2)*grid_distance/1000, (j-(grid_size-1)/2)*grid_distance/1000)
+            if voltages[6] == -1 and proceed_without_error:
+                    
+                alert = tk.Toplevel(root)
+                alert.title("Invalid Voltage")
+
+                tk.Label(alert, text="Invalid voltage detected. Do you want to Abort?").pack(padx=20, pady=20)
+
+                def proceed():
+                    global proceed_without_error
+                    proceed_without_error = False
+                    alert.destroy()
+
+                def cancel():
+                    alert.destroy()
+                    text_fpga_command.delete(1.0, tk.END)
+                    return
+
+                ttk.Button(alert, text="Proceed", command=proceed).pack(side=tk.LEFT, padx=10, pady=10)
+                ttk.Button(alert, text="Abort", command=cancel).pack(side=tk.RIGHT, padx=10, pady=10)
+
+                alert.transient(root)
+                alert.grab_set()
+                root.wait_window(alert)
+            
+            printer_instance.addCommand(voltages[2], voltages[3], voltages[4], voltages[5])
+            print_cmd_single_line = f"DISP NORM {voltages[2]} {voltages[3]} {voltages[4]} {voltages[5]}"
+            text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
+    
+    switch_to_tab1()  # Switch to tab 1 after generating the pattern
+
+    # Generate the calibration pattern
+
 def update_camera_view():
     ret, frame = cap.read()
     if ret:
@@ -217,9 +279,65 @@ def update_camera_view():
         camera_label.configure(image=imgtk)
     camera_label.after(10, update_camera_view)
 
+def open_printer_config():
+    config = tk.Toplevel(root)
+    config.title("Printer Configuration")
+
+    tk.Label(config, text="H: ").grid(row=0, column=0, padx=10, pady=10)
+    entry_H = ttk.Entry(config)
+    entry_H.grid(row=0, column=1, padx=10, pady=10)
+
+    tk.Label(config, text="d: ").grid(row=1, column=0, padx=10, pady=10)
+    entry_d = ttk.Entry(config)
+    entry_d.grid(row=1, column=1, padx=10, pady=10)
+
+    tk.Label(config, text="K: ").grid(row=2, column=0, padx=10, pady=10)
+    entry_K = ttk.Entry(config)
+    entry_K.grid(row=2, column=1, padx=10, pady=10)
+
+    tk.Label(config, text="Uz: ").grid(row=3, column=0, padx=10, pady=10)
+    entry_Uz = ttk.Entry(config)
+    entry_Uz.grid(row=3, column=1, padx=10, pady=10)
+
+    # Populate entries with current configuration
+    entry_H.insert(0, printer_instance.H)
+    entry_d.insert(0, printer_instance.d)
+    entry_K.insert(0, printer_instance.K)
+    entry_Uz.insert(0, printer_instance.Uz)
+
+    def apply_config():
+        try:
+            H_val = float(entry_H.get())
+            d_val = float(entry_d.get())
+            K_val = float(entry_K.get())
+            Uz_val = float(entry_Uz.get())
+            global printer_instance
+            printer_instance.updateValues(H_val, d_val, K_val, Uz_val)
+            print(f"Printer configured: H={H_val}, d={d_val}, K={K_val}, Uz={Uz_val}")
+            update_printer_config_display()
+            config.destroy()
+        except Exception as e:
+            print("Invalid values:", e)
+
+    # Adjust row index for the Apply button
+    apply_button = ttk.Button(config, text="Apply", command=apply_config)
+    apply_button.grid(row=4, column=0, columnspan=2, padx=10, pady=10)
+
 if __name__ == "__main__":
-    root = ThemedTk(theme="arc")
+    
+    if platform.system() != "Darwin":
+        root = ThemedTk(theme="arc")
+    else:
+        root = tk.Tk()
     root.title("Input Printer with Tabs")
+
+    # --- Add menubar with Printer Configuration ---
+    menubar = tk.Menu(root)
+    config_menu = tk.Menu(menubar, tearoff=0)
+    config_menu.add_command(label="Printer Configuration", command=open_printer_config)
+    menubar.add_cascade(label="Tools", menu=config_menu)
+    root.config(menu=menubar)
+    # ------------------------
 
     tab_control = ttk.Notebook(root)
 
@@ -265,6 +383,19 @@ if __name__ == "__main__":
     
     button_start_print = ttk.Button(frame1, text="Start Printing", command=start_print)
     button_start_print.grid(row=7, column=0, columnspan=2, sticky='ew', pady=10)
+
+    # --- Inline Printer Configuration Display in Tab 1 ---
+    printer_config_panel = ttk.LabelFrame(frame1, text="Current Printer Configuration")
+    printer_config_panel.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
+
+    printer_config_value = tk.StringVar()
+    def update_printer_config_display():
+        printer_config_value.set(f"H: {printer_instance.H*1000}mm, d: {printer_instance.d*1000}mm, K: {printer_instance.K}, Uz: {printer_instance.Uz/1000}kV")
+
+    update_printer_config_display()  # initial update
+
+    config_display_label = ttk.Label(printer_config_panel, textvariable=printer_config_value)
+    config_display_label.grid(row=0, column=0, padx=10, pady=10)
 
     # Tab 2
     frame2 = ttk.Frame(tab2)
@@ -320,25 +451,43 @@ if __name__ == "__main__":
     frame_calibration.pack(padx=10, pady=10, fill='both', expand=True)
     
     # Add calibration widgets here
-    calibration_label = ttk.Label(frame_calibration, text="Calibration Grid Size")
-    calibration_label.grid(row=0, column=0, columnspan=3, pady=5, sticky='w')
+    calibration_label = ttk.Label(frame_calibration, text="Calibration Grid Size   ")
+    calibration_label.grid(row=0, column=0, pady=5, sticky='w')
+    
+    #add spacing between widgets
+    ttk.Label(frame_calibration, text="  ").grid(row=0, column=1)
+    
+    generate_pattern_button = ttk.Button(frame_calibration, text="Send to Printer", command=generate_pattern_to_print)
+    generate_pattern_button.grid(row=0, column=2, pady=5, sticky='e')
+    
+    
 
     calibration_options = ["3x3", "5x5", "9x9", "17x17"]
     calibration_var = tk.StringVar(value=calibration_options[0])
 
     calibration_dropdown = ttk.Combobox(frame_calibration, textvariable=calibration_var, values=calibration_options)
-    calibration_dropdown.grid(row=0, column=3, columnspan=4, pady=5, sticky='ew')
+    calibration_dropdown.grid(row=1, column=0, columnspan=3, pady=5, sticky='ew')
+    
+    calibration_pattern_distance_label = ttk.Label(frame_calibration, text="Pattern Distance (mm)")
+    calibration_pattern_distance_label.grid(row=2, column=0, columnspan=2, pady=5, sticky='w')
+    
+    calibration_pattern_distance_entry = ttk.Entry(frame_calibration)
+    calibration_pattern_distance_entry.grid(row=2, column=2, pady=5, sticky='ew')
+    calibration_pattern_distance_entry.insert(0, "10")
+    
+    frame_calibration_input = ttk.Frame(frame_calibration)
+    frame_calibration_input.grid(row=3, column=0, columnspan=3, pady=5, sticky='w')
     
     def create_calibration_grid(size):
-        for widget in frame_calibration.grid_slaves():
+        for widget in frame_calibration_input.grid_slaves():
             if int(widget.grid_info()["row"]) > 0:
                 widget.grid_forget()
 
         grid_size = int(size.split('x')[0])
         for i in range(grid_size):
             for j in range(grid_size):
-                entry = ttk.Entry(frame_calibration, width=5)
-                entry.grid(row=i + 1, column=j, padx=5, pady=5)
+                entry = ttk.Entry(frame_calibration_input, width=5)
+                entry.grid(row=i, column=j, padx=5, pady=5)
 
     def on_calibration_option_change(event):
         print
@@ -354,10 +503,12 @@ if __name__ == "__main__":
     dots_array = np.array([])
     original_dxf_file = ""
 
-    cap = cv2.VideoCapture(0)
-    update_camera_view()
+    if platform.system() != "Darwin":
+        cap = cv2.VideoCapture(0)
+        update_camera_view()
 
     root.mainloop()
 
-    cap.release()
-    cv2.destroyAllWindows()
+    if platform.system() != "Darwin":
+        cap.release()
+        cv2.destroyAllWindows()

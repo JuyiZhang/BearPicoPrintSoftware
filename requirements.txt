@@ -3,4 +3,3 @@ nifpga
 ezdxf
 opencv-python
 pillow
-ttkthemes
