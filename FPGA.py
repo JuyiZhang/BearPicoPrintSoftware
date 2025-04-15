@@ -27,6 +27,8 @@ class FPGA:
             session.run()
             print(session.registers)
             array_register: _ArrayRegister = session.registers['array']
+            python_begin_print = session.registers['Python Begin Print']
+            
             array_to_write = np.zeros(64)
             print(array_to_write)
             array_register.write(array_to_write)
