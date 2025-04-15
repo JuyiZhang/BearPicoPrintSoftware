@@ -4,14 +4,16 @@ from FPGA import find_fpga_file
 
 
 class printer:
-    def __init__(self, H, d, K=0.8333, Uz=3.5):
+    def __init__(self, H, d, K=0.8333, Uz=3.5, address="172.22.11.2"):
         self.H = H/1000 # mm to m
         self.d = d/1000 # mm to m
         self.K = K
         self.Uz = Uz*1000 # kV to V
         self.command = []
-        self.bitfile = ""
-        self.session = None
+        self.address = address
+        self.connected = False
+        self.session: nifpga.Session = None
+        self.calibrationData = []
         self.bindToNiFPGA()
         
     def updateValues(self, H, d, K=0.8333, Uz=3.5):
@@ -19,6 +21,17 @@ class printer:
         self.d = d
         self.K = K
         self.Uz = Uz
+        
+    def saveCalibrationData(self, coordinates: list[str], calibrationVoltages: list[list[float]]):
+        print(f"Saving calibration data")
+        for i in range(0,len(coordinates)):
+            coordinate_ux = float(calibrationVoltages[i][0])
+            coordinate_uy = float(calibrationVoltages[i][1])
+            coordinate_x = float(coordinates[i].split(",")[0])
+            coordinate_y = float(coordinates[i].split(",")[1])
+            self.calibrationData.append([coordinate_x, coordinate_y, coordinate_ux, coordinate_uy])
+        print(f"Calibration data saved")
+        print(self.calibrationData)
         
     def bindToNiFPGA(self):
         # Search the FPGA .lvbitx file
@@ -61,8 +74,10 @@ class printer:
     
     def toU(self, x, y):
         print(x, y)
+        
         Ux = x*self.d/(self.K*self.H**2)*self.Uz
         Uy = y*self.d/(self.K*self.H**2)*self.Uz
+        
         # First calculation, assume Ua + Uc = Ub + Ud
         Ua = (1250 + Ux)/2
         Uc = (1250 - Ux)/2
@@ -96,8 +111,22 @@ class printer:
         # Ud = Ub - Uy
         return Ux, Uy, Ua, Ub, Uc, Ud, 0
     
-    def executeCommand(self, in_command = []):
+    def closeSession(self):
+        if self.session is not None:
+            try:
+                self.session.close()
+            except Exception as e:
+                print(f"Error: {e}")
+            finally:
+                self.session = None
+        print("Session closed")
+        return 0
         
+    
+    def __del__(self):
+        self.closeSession()
+    
+    def executeCommand(self, in_command = []):
         
         if in_command != []:
             print(f"Executing command: {in_command}")

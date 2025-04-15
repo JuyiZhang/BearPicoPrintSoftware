@@ -19,6 +19,7 @@ else:
 # Global printer instance with default configuration
 printer_instance = printer(15, 10)   # default values
 print_command = ""
+calibration_voltages = []
 
 def start_print():
     print("Starting print...")
@@ -262,6 +263,7 @@ def generate_pattern_to_print():
                 root.wait_window(alert)
             
             printer_instance.addCommand(voltages[2], voltages[3], voltages[4], voltages[5])
+            calibration_voltages.append([voltages[0],voltages[1]])
             print_cmd_single_line = f"DISP NORM {voltages[2]} {voltages[3]} {voltages[4]} {voltages[5]}"
             text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
     
@@ -323,6 +325,24 @@ def open_printer_config():
     apply_button = ttk.Button(config, text="Apply", command=apply_config)
     apply_button.grid(row=4, column=0, columnspan=2, padx=10, pady=10)
 
+def open_connect():
+    conn_window = tk.Toplevel(root)
+    conn_window.title("Connect to Printer")
+
+    tk.Label(conn_window, text="Printer Address:").grid(row=0, column=0, padx=10, pady=10)
+    address_entry = ttk.Entry(conn_window)
+    address_entry.grid(row=0, column=1, padx=10, pady=10)
+    address_entry.insert(0, printer_instance.address)
+
+    def apply_address():
+        new_address = address_entry.get()
+        printer_instance.updateAddress(new_address)
+        print(f"Printer address updated to {new_address}")
+        conn_window.destroy()
+
+    apply_button = ttk.Button(conn_window, text="Apply", command=apply_address)
+    apply_button.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
+
 if __name__ == "__main__":
     
     if platform.system() != "Darwin":
@@ -331,11 +351,16 @@ if __name__ == "__main__":
         root = tk.Tk()
     root.title("Input Printer with Tabs")
 
-    # --- Add menubar with Printer Configuration ---
+    # --- Add menubar with Printer Configuration and Connect ---
     menubar = tk.Menu(root)
     config_menu = tk.Menu(menubar, tearoff=0)
     config_menu.add_command(label="Printer Configuration", command=open_printer_config)
     menubar.add_cascade(label="Tools", menu=config_menu)
+
+    connect_menu = tk.Menu(menubar, tearoff=0)
+    connect_menu.add_command(label="Update Address", command=open_connect)
+    menubar.add_cascade(label="Connect", menu=connect_menu)
+
     root.config(menu=menubar)
     # ------------------------
 
@@ -478,16 +503,35 @@ if __name__ == "__main__":
     frame_calibration_input = ttk.Frame(frame_calibration)
     frame_calibration_input.grid(row=3, column=0, columnspan=3, pady=5, sticky='w')
     
+    def save_calibration():
+        calibration_data = []
+        for row in calibration_entries:
+            for entry in row:
+                calibration_data.append(entry.get())
+        printer_instance.saveCalibrationData(calibration_data, calibration_voltages)
+        # You can save calibration_data to a file or process it as needed
+    
+    save_calibration_button = ttk.Button(frame_calibration, text="Save Calibration", command=save_calibration)
+    save_calibration_button.grid(row=4, column=0, columnspan=3, pady=5, sticky='ew')
+    
+    
     def create_calibration_grid(size):
         for widget in frame_calibration_input.grid_slaves():
             if int(widget.grid_info()["row"]) > 0:
                 widget.grid_forget()
 
+        global calibration_entries
+        calibration_entries = []
         grid_size = int(size.split('x')[0])
         for i in range(grid_size):
+            row_entries = []
             for j in range(grid_size):
                 entry = ttk.Entry(frame_calibration_input, width=5)
                 entry.grid(row=i, column=j, padx=5, pady=5)
+                row_entries.append(entry)
+            calibration_entries.append(row_entries)
+
+    
 
     def on_calibration_option_change(event):
         print
