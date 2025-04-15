@@ -1,21 +1,7 @@
 import nifpga
 import os
+from FPGA import find_fpga_file
 
-def find_fpga_file(directory, ext=".lvbitx"):
-    """
-    Search the provided directory for a file with a specific extension.
-    Returns the full path of the file if found, or None otherwise.
-    """
-    search_directory: list = os.listdir(directory)
-    for filename in search_directory:
-        current_dir = os.path.join(directory, filename)
-        if os.path.isdir(current_dir):
-            for discover_dir in os.listdir(current_dir):
-                search_directory.append(os.path.join(current_dir, discover_dir))
-            print(search_directory)
-        elif filename.lower().endswith(ext):
-            return os.path.join(directory, filename)
-    return "Not Found"
 
 class printer:
     def __init__(self, H, d, K=0.8333, Uz=3.5):
@@ -37,14 +23,14 @@ class printer:
     def bindToNiFPGA(self):
         # Search the FPGA .lvbitx file
         self.bitfile = find_fpga_file("./", ".lvbitx")
-        with nifpga.Session(self.bitfile, "rio://172.22.11.2/RIO0") as session:
-            session.reset()
-            session.run()
-            my_control = session.registers['MyConstant']
-            my_register = session.registers['MyRegister']
-            my_control.write(3)
-            data = my_register.read()
-            print(data)  
+        # with nifpga.Session(self.bitfile, "rio://172.22.11.2/RIO0") as session:
+        #     session.reset()
+        #     session.run()
+        #     my_control = session.registers['MyConstant']
+        #     my_register = session.registers['MyRegister']
+        #     my_control.write(3)
+        #     data = my_register.read()
+        #     print(data)  
         
     
     def clearCommand(self):
