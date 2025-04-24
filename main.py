@@ -35,6 +35,7 @@ def print_input():
 def exit_handler():
     printer_instance.__deinit__()
     print("Cleaning up")
+    sys.exit(0)
 
 def kill_handler(*args):
     printer_instance.__deinit__()

@@ -81,24 +81,30 @@ class printer:
             return 1
      
     def updateVoltage(self, Ua, Ub, Uc, Ud):
-        threshold = 20
+        threshold = 100
+        
         if self.session is not None:
             try:
                 self.session.registers['Control 1'].write(Ua)
                 self.session.registers['Control 2'].write(Ub)
                 self.session.registers['Control 3'].write(Uc)
                 self.session.registers['Control 4'].write(Ud)
+                current_time = time.time()
                 while True:
-                    Uam = self.session.registers['Monitor 1'].read()
-                    Ubm = self.session.registers['Monitor 2'].read()
-                    Ucm = self.session.registers['Monitor 3'].read()
-                    Udm = self.session.registers['Monitor 4'].read()
+                    if time.time() - current_time > 0.5:
+                        print("Timeout waiting for voltage update")
+                        return 1, 0, 0, 0, 0
+                    Uam = float(self.session.registers['Monitor 1'].read())*5000
+                    Ubm = float(self.session.registers['Monitor 2'].read())*5000
+                    Ucm = float(self.session.registers['Monitor 3'].read())*5000
+                    Udm = float(self.session.registers['Monitor 4'].read())*5000
+                    print(f"Voltage: {Uam}, {Ubm}, {Ucm}, {Udm}")
                     if abs(Uam - Ua) < threshold and abs(Ubm - Ub) < threshold and abs(Ucm - Uc) < threshold and abs(Udm - Ud) < threshold:
                         print(f"Voltage updated: {Ua}, {Ub}, {Uc}, {Ud}")
                         self.fbVoltage.append([Uam, Ubm, Ucm, Udm])
                         return 0, Uam, Ubm, Ucm, Udm
             except Exception as e:
-                print(f"Error: {e}")
+                print(f"Error during update voltage: {e}")
                 return 1, 0, 0, 0, 0
         else:
             print("Session is not connected")
@@ -114,7 +120,7 @@ class printer:
                 print("Dispense command executed")
                 return 0
             except Exception as e:
-                print(f"Error: {e}")
+                print(f"Error during dispense: {e}")
                 return 1
         else:
             print("Session is not connected")
@@ -126,7 +132,8 @@ class printer:
                 self.session.registers['HV Enable'].write(True)
                 print("HV Enable command executed")
                 for command in self.command:
-                    if self.updateVoltage(command[1], command[2], command[3], command[4]) == 0:
+                    print(f"Command: {command}")
+                    if self.updateVoltage(command[1], command[2], command[3], command[4])[0] == 0:
                         if self.dispense() == 0:
                             print("Dispense command executed")
                         else:
@@ -164,7 +171,7 @@ class printer:
         self.d = d
     
     def addCommand(self, Ua, Ub, Uc, Ud, type = 0):
-        self.command.append([type, Ua/1000, Ub/1000, Uc/1000, Ud/1000])
+        self.command.append([type, Ua, Ub, Uc, Ud])
     
     def toPos(self, Ux = 0, Uy = 0, Ua = 0, Ub = 0, Uc = 0, Ud = 0):
         if Ux == 0 and Uy == 0:
@@ -231,8 +238,6 @@ class printer:
     def executeCommand(self, in_command = []):
         
         if in_command != []:
-            print(f"Executing command: {in_command}")
-        else:
-            for command in self.command:
-                print(f"Executing command: {command}")
+            self.command = in_command
+        self.beginPrint()
             
