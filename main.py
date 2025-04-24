@@ -33,9 +33,11 @@ def print_input():
     print(user_input)
 
 def exit_handler():
+    printer_instance.__deinit__()
     print("Cleaning up")
 
 def kill_handler(*args):
+    printer_instance.__deinit__()
     sys.exit(0)
 
 atexit.register(exit_handler)
@@ -294,6 +296,208 @@ def update_camera_view():
         camera_label.configure(image=imgtk)
     camera_label.after(10, update_camera_view)
 
+def select_firmware():
+    # Open file dialog to select firmware
+    firmware_path = filedialog.askopenfilename(filetypes=[("Firmware files", "*.lvbitx")])
+    if firmware_path:
+        # Update the printer instance with the selected firmware
+        global printer_instance
+        printer_instance.updateFirmware(firmware_path)
+        print(f"Firmware updated to {firmware_path}")
+        return 0
+    else:
+        print("No firmware selected")
+        return 1
+
+def printer_print_line():
+    # add a popup window to select line type, line length, and line axis
+    line_window = tk.Toplevel(root)
+    line_window.title("Line Configuration")
+    # add dropdown to select line axis (A, B, C, D)
+    line_axis_label = ttk.Label(line_window, text="Line Axis:")
+    line_axis_label.grid(row=0, column=0, padx=10, pady=10)
+    line_axis_var = tk.StringVar(value="A")
+    line_axis_dropdown = ttk.Combobox(line_window, textvariable=line_axis_var, values=["A", "B", "C", "D"])
+    line_axis_dropdown.grid(row=0, column=1, columnspan=2, padx=10, pady=10)
+    # add two horizontal entrys for line minimum and maximum
+    line_min_label = ttk.Label(line_window, text="Line Min:")
+    line_min_label.grid(row=1, column=0, padx=10, pady=10)
+    line_min_entry = ttk.Entry(line_window)
+    line_min_entry.grid(row=2, column=0, padx=10, pady=10)
+    line_step_label = ttk.Label(line_window, text="Line Step:")
+    line_step_label.grid(row=1, column=1, padx=10, pady=10)
+    line_step_entry = ttk.Entry(line_window)
+    line_step_entry.grid(row=2, column=1, padx=10, pady=10)
+    line_max_label = ttk.Label(line_window, text="Line Max:")
+    line_max_label.grid(row=1, column=2, padx=10, pady=10)
+    line_max_entry = ttk.Entry(line_window)
+    line_max_entry.grid(row=2, column=2, padx=10, pady=10)
+    # add a button to execute the line command
+    def execute_line_command():
+        printer_instance.clearCommand()
+        text_fpga_command.delete(1.0, tk.END)
+        line_axis = line_axis_var.get()
+        line_min = float(line_min_entry.get())
+        line_max = float(line_max_entry.get())
+        line_step = float(line_step_entry.get())
+        for i in range(int((line_max-line_min)/line_step)):
+            if line_axis == "A":
+                printer_instance.addCommand(i*line_step+line_min, 0, 0, 0)
+                print_cmd_single_line = f"DISP NORM {i*line_step+line_min} 0 0 0"
+            elif line_axis == "B":
+                printer_instance.addCommand(0, i*line_step+line_min, 0, 0)
+                print_cmd_single_line = f"DISP NORM 0 {i*line_step+line_min} 0 0"
+            elif line_axis == "C":
+                printer_instance.addCommand(0, 0, i*line_step+line_min, 0)
+                print_cmd_single_line = f"DISP NORM 0 0 {i*line_step+line_min} 0"
+            elif line_axis == "D":
+                printer_instance.addCommand(0, 0, 0, i*line_step+line_min)
+                print_cmd_single_line = f"DISP NORM 0 0 0 {i*line_step+line_min}"
+            text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
+        
+        switch_to_tab1()
+        print(printer_instance.command)
+        line_window.destroy()
+        
+    execute_button = ttk.Button(line_window, text="Execute", command=execute_line_command)
+    execute_button.grid(row=3, column=0, columnspan=3, padx=10, pady=10)
+    
+    
+
+def printer_print_oval():
+    # add a popup window to select oval width, oval height, dot distance
+    oval_window = tk.Toplevel(root)
+    oval_window.title("Oval Configuration")
+    oval_axis_label = ttk.Label(oval_window, text="Oval Axis:")
+    oval_axis_label.grid(row=0, column=0, padx=10, pady=10)
+    oval_axis_var = tk.StringVar(value="A-B")
+    oval_axis_dropdown = ttk.Combobox(oval_window, textvariable=oval_axis_var, values=["A-B", "A-D", "C-B", "C-D"])
+    oval_axis_dropdown.grid(row=0, column=1, columnspan=2, padx=10, pady=10)
+    hline_min_label = ttk.Label(oval_window, text="HAxis Length:")
+    hline_min_label.grid(row=1, column=0, padx=10, pady=10)
+    hline_min_entry = ttk.Entry(oval_window)
+    hline_min_entry.grid(row=2, column=0, padx=10, pady=10)
+    vaxis_length_label = ttk.Label(oval_window, text="VAxis Length:")
+    vaxis_length_label.grid(row=1, column=1, padx=10, pady=10)
+    vaxis_length_entry = ttk.Entry(oval_window)
+    vaxis_length_entry.grid(row=2, column=1, padx=10, pady=10)
+    x_pos_label = ttk.Label(oval_window, text="X Pos:")
+    x_pos_label.grid(row=3, column=0, padx=10, pady=10)
+    x_pos_entry = ttk.Entry(oval_window)
+    x_pos_entry.grid(row=4, column=0, padx=10, pady=10)
+    y_pos_label = ttk.Label(oval_window, text="Y Pos:")
+    y_pos_label.grid(row=3, column=1, padx=10, pady=10)
+    y_pos_entry = ttk.Entry(oval_window)
+    y_pos_entry.grid(row=4, column=1, padx=10, pady=10)
+    step_label = ttk.Label(oval_window, text="Step:")
+    step_label.grid(row=5, column=0, padx=10, pady=10)
+    step_entry = ttk.Entry(oval_window)
+    step_entry.grid(row=5, column=1, padx=10, pady=10)
+    
+    # add a button to execute the oval command
+    def execute_oval_command():
+        printer_instance.clearCommand()
+        text_fpga_command.delete(1.0, tk.END)
+        haxis_length = float(hline_min_entry.get())
+        vaxis_length = float(vaxis_length_entry.get())
+        x_pos = float(x_pos_entry.get())
+        y_pos = float(y_pos_entry.get())
+        step = float(step_entry.get())
+        axis = oval_axis_var.get()
+        for i in range(int(360/step)):
+            if oval_axis_var.get() == "A-B":
+                printer_instance.addCommand(x_pos + haxis_length*np.cos(np.radians(i)), y_pos + vaxis_length*np.sin(np.radians(i)), 0, 0)
+                print_cmd_single_line = f"DISP NORM {x_pos + haxis_length*np.cos(np.radians(i))} {y_pos + vaxis_length*np.sin(np.radians(i))} 0 0"
+            elif oval_axis_var.get() == "A-D":
+                printer_instance.addCommand(x_pos + haxis_length*np.cos(np.radians(i)), 0, 0, y_pos + vaxis_length*np.sin(np.radians(i)))
+                print_cmd_single_line = f"DISP NORM {x_pos + haxis_length*np.cos(np.radians(i))} 0 0 {y_pos + vaxis_length*np.sin(np.radians(i))}"
+            elif oval_axis_var.get() == "C-B":
+                printer_instance.addCommand(0, x_pos + haxis_length*np.cos(np.radians(i)), y_pos + vaxis_length*np.sin(np.radians(i)), 0)
+                print_cmd_single_line = f"DISP NORM 0 {x_pos + haxis_length*np.cos(np.radians(i))} {y_pos + vaxis_length*np.sin(np.radians(i))} 0"
+            elif oval_axis_var.get() == "C-D":
+                printer_instance.addCommand(0, 0, x_pos + haxis_length*np.cos(np.radians(i)), y_pos + vaxis_length*np.sin(np.radians(i)))
+                print_cmd_single_line = f"DISP NORM 0 0 {x_pos + haxis_length*np.cos(np.radians(i))} {y_pos + vaxis_length*np.sin(np.radians(i))}"
+            text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
+        switch_to_tab1()
+        print(printer_instance.command)
+        oval_window.destroy()
+    # add a button to execute the oval command
+    execute_cmd_button = ttk.Button(oval_window, text="Execute", command=execute_oval_command)
+    execute_cmd_button.grid(row=6, column=0, columnspan=2, padx=10, pady=10)
+    print("printing oval")
+        
+    
+
+    
+def printer_print_square():
+    # add a popup window to select square width, square height, dot distance
+    square_window = tk.Toplevel(root)
+    square_window.title("Square Configuration")
+    # add two horizontal entrys for square width and height
+    hline_axis_label = ttk.Label(square_window, text="H/VLine Axis:")
+    hline_axis_label.grid(row=0, column=0, padx=10, pady=10)
+    hline_axis_var = tk.StringVar(value="A-B")
+    hline_axis_dropdown = ttk.Combobox(square_window, textvariable=hline_axis_label, values=["A-B", "A-D", "C-B", "C-D"])
+    hline_axis_dropdown.grid(row=0, column=1, columnspan=2, padx=10, pady=10)
+    hline_min_label = ttk.Label(square_window, text="HLine Min:")
+    hline_min_label.grid(row=1, column=0, padx=10, pady=10)
+    hline_min_entry = ttk.Entry(square_window)
+    hline_min_entry.grid(row=2, column=0, padx=10, pady=10)
+    hline_step_label = ttk.Label(square_window, text="HLine Step:")
+    hline_step_label.grid(row=1, column=1, padx=10, pady=10)
+    hline_step_entry = ttk.Entry(square_window)
+    hline_step_entry.grid(row=2, column=1, padx=10, pady=10)
+    hline_max_label = ttk.Label(square_window, text="HLine Max:")
+    hline_max_label.grid(row=1, column=2, padx=10, pady=10)
+    hline_max_entry = ttk.Entry(square_window)
+    hline_max_entry.grid(row=2, column=2, padx=10, pady=10)
+    vline_min_label = ttk.Label(square_window, text="VLine Min:")
+    vline_min_label.grid(row=3, column=0, padx=10, pady=10)
+    vline_min_entry = ttk.Entry(square_window)
+    vline_min_entry.grid(row=4, column=0, padx=10, pady=10)
+    vline_step_label = ttk.Label(square_window, text="VLine Step:")
+    vline_step_label.grid(row=3, column=1, padx=10, pady=10)
+    vline_step_entry = ttk.Entry(square_window)
+    vline_step_entry.grid(row=4, column=1, padx=10, pady=10)
+    vline_max_label = ttk.Label(square_window, text="VLine Max:")
+    vline_max_label.grid(row=3, column=2, padx=10, pady=10)
+    vline_max_entry = ttk.Entry(square_window)
+    vline_max_entry.grid(row=4, column=2, padx=10, pady=10)
+    # add a button to execute the square command
+    def execute_square_command():
+        printer_instance.clearCommand()
+        text_fpga_command.delete(1.0, tk.END)
+        hmin = float(hline_min_entry.get())
+        hstep = float(hline_step_entry.get())
+        hmax = float(hline_max_entry.get())
+        vmin = float(vline_min_entry.get())
+        vstep = float(vline_step_entry.get())
+        vmax = float(vline_max_entry.get())
+        axis = hline_axis_var.get()
+        for i in range(int((hmax-hmin)/hstep)):
+            for j in range(int((vmax-vmin)/vstep)):
+                if hline_axis_var.get() == "A-B":
+                    printer_instance.addCommand(i*hstep+hmin, j*vstep+vmin, 0, 0)
+                    print_cmd_single_line = f"DISP NORM {i*hstep+hmin} {j*vstep+vmin} 0 0"
+                elif hline_axis_var.get() == "A-D":
+                    printer_instance.addCommand(i*hstep+hmin, 0, 0, j*vstep+vmin)
+                    print_cmd_single_line = f"DISP NORM {i*hstep+hmin} 0 0 {j*vstep+vmin}"
+                elif hline_axis_var.get() == "C-B":
+                    printer_instance.addCommand(0, i*hstep+hmin, j*vstep+vmin, 0)
+                    print_cmd_single_line = f"DISP NORM 0 {i*hstep+hmin} {j*vstep+vmin} 0"
+                elif hline_axis_var.get() == "C-D":
+                    printer_instance.addCommand(0, 0, i*hstep+hmin, j*vstep+vmin)
+                    print_cmd_single_line = f"DISP NORM 0 0 {i*hstep+hmin} {j*vstep+vmin}"
+                text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
+        switch_to_tab1()
+        print(printer_instance.command)
+        square_window.destroy()
+    # add a button to execute the oval command
+    execute_cmd_button = ttk.Button(square_window, text="Execute", command=execute_square_command)
+    execute_cmd_button.grid(row=5, column=0, columnspan=3, padx=10, pady=10)    
+    print("printing square")
+ 
+
 def open_printer_config():
     config = tk.Toplevel(root)
     config.title("Printer Configuration")
@@ -367,12 +571,17 @@ if __name__ == "__main__":
     # --- Add menubar with Printer Configuration and Connect ---
     menubar = tk.Menu(root)
     config_menu = tk.Menu(menubar, tearoff=0)
-    config_menu.add_command(label="Printer Configuration", command=open_printer_config)
-    menubar.add_cascade(label="Tools", menu=config_menu)
+    config_menu.add_command(label="Config", command=open_printer_config)
+    config_menu.add_command(label="Select Firmware", command=select_firmware)
+    config_menu.add_command(label="Update Address", command=open_connect)
+    menubar.add_cascade(label="Printer", menu=config_menu)
 
     connect_menu = tk.Menu(menubar, tearoff=0)
-    connect_menu.add_command(label="Update Address", command=open_connect)
-    menubar.add_cascade(label="Connect", menu=connect_menu)
+    connect_menu.add_command(label="Pre-Calibrate", command=save_dots, state="disabled")
+    connect_menu.add_command(label="Line", command=printer_print_line)
+    connect_menu.add_command(label="Oval", command=printer_print_oval)
+    connect_menu.add_command(label="Rectangle", command=printer_print_square)
+    menubar.add_cascade(label="Generate", menu=connect_menu)
 
     root.config(menu=menubar)
     # ------------------------

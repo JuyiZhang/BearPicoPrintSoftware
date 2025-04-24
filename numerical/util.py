@@ -49,7 +49,10 @@ class printer:
     def bindToNiFPGA(self):
         # Search the FPGA .lvbitx file
         self.bitfile = find_fpga_file("./", ".lvbitx")
-        self.session = nifpga.Session(self.bitfile, "rio://172.22.11.2/RIO0")
+        if self.bitfile == "Not Found":
+            print("FPGA file not found")
+            return 1
+        self.session = nifpga.Session(self.bitfile, f"rio://{self.address}/RIO0")
         self.session.reset()
         self.session.run()
         #     my_control = session.registers['MyConstant']
@@ -57,7 +60,26 @@ class printer:
         #     my_control.write(3)
         #     data = my_register.read()
         #     print(data)  
-        
+    
+    def updateFirmware(self, firmware_path):
+        if os.path.exists(firmware_path):
+            try:
+                if self.session is not None:
+                    self.session.close()
+                self.session = None
+                self.bitfile = firmware_path
+                self.session = nifpga.Session(self.bitfile, f"rio://{self.address}/RIO0")
+                self.session.reset()
+                self.session.run()
+                print("Firmware updated")
+                return 0
+            except Exception as e:
+                print(f"Error: {e}")
+                return 1
+        else:
+            print(f"Firmware file {firmware_path} not found")
+            return 1
+     
     def updateVoltage(self, Ua, Ub, Uc, Ud):
         threshold = 20
         if self.session is not None:

@@ -3,7 +3,7 @@ import os
 import numpy as np
 from nifpga.session import _ArrayRegister 
 
-def find_fpga_file(directory, ext=".lvbitx"):
+def find_fpga_file(directory, ext=".lvbitx", exclude="smart_data_collector"):
     """
     Search the provided directory for a file with a specific extension.
     Returns the full path of the file if found, or None otherwise.
@@ -11,10 +11,12 @@ def find_fpga_file(directory, ext=".lvbitx"):
     search_directory: list = os.listdir(directory)
     for filename in search_directory:
         current_dir = os.path.join(directory, filename)
+        if exclude in current_dir:
+            continue
         if os.path.isdir(current_dir):
             for discover_dir in os.listdir(current_dir):
                 search_directory.append(os.path.join(current_dir, discover_dir))
-            print(search_directory)
+            # print(search_directory)
         elif filename.lower().endswith(ext):
             return os.path.join(directory, filename)
     return "Not Found"
