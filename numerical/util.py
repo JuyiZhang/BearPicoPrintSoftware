@@ -1,3 +1,4 @@
+import time
 import nifpga
 import os
 from FPGA import find_fpga_file
@@ -10,12 +11,24 @@ class printer:
         self.K = K
         self.Uz = Uz*1000 # kV to V
         self.command = []
+        self.fbVoltage = []
         self.address = address
         self.connected = False
         self.session: nifpga.Session = None
         self.calibrationData = []
         self.bindToNiFPGA()
-        
+    
+    def __deinit__(self):
+        if self.session is not None:
+            try:
+                self.session.close()
+            except Exception as e:
+                print(f"Error: {e}")
+            finally:
+                self.session = None
+        print("Session closed")
+        return 0
+    
     def updateValues(self, H, d, K=0.8333, Uz=3.5):
         self.H = H
         self.d = d
@@ -36,15 +49,82 @@ class printer:
     def bindToNiFPGA(self):
         # Search the FPGA .lvbitx file
         self.bitfile = find_fpga_file("./", ".lvbitx")
-        # with nifpga.Session(self.bitfile, "rio://172.22.11.2/RIO0") as session:
-        #     session.reset()
-        #     session.run()
+        self.session = nifpga.Session(self.bitfile, "rio://172.22.11.2/RIO0")
+        self.session.reset()
+        self.session.run()
         #     my_control = session.registers['MyConstant']
         #     my_register = session.registers['MyRegister']
         #     my_control.write(3)
         #     data = my_register.read()
         #     print(data)  
         
+    def updateVoltage(self, Ua, Ub, Uc, Ud):
+        threshold = 20
+        if self.session is not None:
+            try:
+                self.session.registers['Control 1'].write(Ua)
+                self.session.registers['Control 2'].write(Ub)
+                self.session.registers['Control 3'].write(Uc)
+                self.session.registers['Control 4'].write(Ud)
+                while True:
+                    Uam = self.session.registers['Monitor 1'].read()
+                    Ubm = self.session.registers['Monitor 2'].read()
+                    Ucm = self.session.registers['Monitor 3'].read()
+                    Udm = self.session.registers['Monitor 4'].read()
+                    if abs(Uam - Ua) < threshold and abs(Ubm - Ub) < threshold and abs(Ucm - Uc) < threshold and abs(Udm - Ud) < threshold:
+                        print(f"Voltage updated: {Ua}, {Ub}, {Uc}, {Ud}")
+                        self.fbVoltage.append([Uam, Ubm, Ucm, Udm])
+                        return 0, Uam, Ubm, Ucm, Udm
+            except Exception as e:
+                print(f"Error: {e}")
+                return 1, 0, 0, 0, 0
+        else:
+            print("Session is not connected")
+            return 1, 0, 0, 0, 0
+    
+    def dispense(self):
+        if self.session is not None:
+            try:
+                self.session.registers['Dispense Indicator'].write(True)
+                time.sleep(0.01)
+                self.session.registers['Dispense Indicator'].write(False)
+                time.sleep(0.01)
+                print("Dispense command executed")
+                return 0
+            except Exception as e:
+                print(f"Error: {e}")
+                return 1
+        else:
+            print("Session is not connected")
+            return 1
+    
+    def beginPrint(self):
+        if self.session is not None:
+            try:
+                self.session.registers['HV Enable'].write(True)
+                print("HV Enable command executed")
+                for command in self.command:
+                    if self.updateVoltage(command[1], command[2], command[3], command[4]) == 0:
+                        if self.dispense() == 0:
+                            print("Dispense command executed")
+                        else:
+                            print("Error dispensing")
+                            return 1
+                    else:
+                        print("Error updating voltage")
+                        return 1
+                self.session.registers['HV Enable'].write(False)
+                print("Print Finish, Enjoy!")
+                return 0
+            except Exception as e:
+                print(f"Error: {e}")
+                return 1
+        else:
+            print("Session is not connected")
+            return 1
+    
+    def clearfbVoltage(self):
+        self.fbVoltage = []
     
     def clearCommand(self):
         self.command = []

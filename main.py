@@ -6,6 +6,9 @@ import numpy as np
 import zipfile
 import os
 import cv2
+import atexit
+import sys
+import signal
 from PIL import Image, ImageTk
 
 import platform
@@ -28,6 +31,16 @@ def start_print():
 def print_input():
     user_input = entry1.get()
     print(user_input)
+
+def exit_handler():
+    print("Cleaning up")
+
+def kill_handler(*args):
+    sys.exit(0)
+
+atexit.register(exit_handler)
+signal.signal(signal.SIGINT, kill_handler)
+signal.signal(signal.SIGTERM, kill_handler)
 
 def open_file_dialog():
     file_path = filedialog.askopenfilename(filetypes=[("DXF and B3P files", "*.dxf;*.b3p")])
