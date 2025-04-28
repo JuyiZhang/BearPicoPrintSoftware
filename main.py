@@ -46,7 +46,12 @@ signal.signal(signal.SIGINT, kill_handler)
 signal.signal(signal.SIGTERM, kill_handler)
 
 def open_file_dialog():
-    file_path = filedialog.askopenfilename(filetypes=[("DXF and B3P files", "*.dxf;*.b3p")])
+    
+    # if using mac
+    if platform.system() == "Darwin":
+        file_path = filedialog.askopenfilename()
+    else:
+        file_path = filedialog.askopenfilename(filetypes=[("DXF and B3P files", "*.dxf;*.b3p")])
     if file_path:
         global original_dxf_file
         if file_path.endswith('.b3p'):
@@ -179,7 +184,11 @@ def display_dxf(file_path):
 
         global dots_array
         dots_array = np.array(dots)
-        print(dots_array)
+        # get width and height of the array
+        width = dots_array[:, 0].max() - dots_array[:, 0].min()
+        height = dots_array[:, 1].max() - dots_array[:, 1].min()
+        print(f"Width: {width}, Height: {height}")
+        
 
     except Exception as e:
         print(f"Error reading DXF file: {e}")
@@ -235,6 +244,22 @@ def save_dots():
 
 def switch_to_tab1():
     tab_control.select(tab1)
+    global dots_array
+    if dots_array is not None:
+        for dot in dots_array:
+            Ua = dot[0]*10 - 2500
+            Uc = 0
+            if Ua < 0:
+                Ua = 0
+                Uc = 2500 - dot[0]*10
+            Ub = dot[1]*10 - 2500
+            Ud = 0
+            if Ub < 0:
+                Ub = 0
+                Ud = 2500 - dot[1]*10
+            printer_instance.addCommand(Ua, Ub, Uc, Ud)
+            print_cmd_single_line = f"DISP NORM {Ua} {Ub} {Uc} {Ud}"
+            text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
 
 def generate_pattern_to_print():
     print("Generating pattern to print...")
@@ -693,6 +718,9 @@ if __name__ == "__main__":
 
     send_button = ttk.Button(frame2, text="Send", command=switch_to_tab1)
     send_button.grid(row=5, column=1, pady=10, sticky='ew')
+    
+    im_scale_label = ttk.Label(frame2, text="Image Scale: 1px:10V")
+    im_scale_label.grid(row=6, column=1, sticky='w', pady=5)
 
     # Tab Calibration
     frame_calibration = ttk.Frame(tab_calibration)
