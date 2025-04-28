@@ -9,6 +9,8 @@ class printer:
         self.H = H/1000 # mm to m
         self.d = d/1000 # mm to m
         self.K = K
+        self.dispenseInterval = 0.1 # seconds
+        self.vthreshold = 0.1 # ratio
         self.Uz = Uz*1000 # kV to V
         self.command = []
         self.fbVoltage = []
@@ -71,7 +73,7 @@ class printer:
                 self.session = nifpga.Session(self.bitfile, f"rio://{self.address}/RIO0")
                 self.session.reset()
                 self.session.run()
-                print("Firmware updated")
+                print("Firmware updated to ", firmware_path)
                 return 0
             except Exception as e:
                 print(f"Error: {e}")
@@ -81,7 +83,7 @@ class printer:
             return 1
      
     def updateVoltage(self, Ua, Ub, Uc, Ud):
-        threshold = 100
+        threshold_min = 100
         
         if self.session is not None:
             try:
@@ -91,14 +93,16 @@ class printer:
                 self.session.registers['Control 4'].write(Ud)
                 current_time = time.time()
                 while True:
-                    if time.time() - current_time > 0.5:
-                        print("Timeout waiting for voltage update")
-                        return 1, 0, 0, 0, 0
+                    
                     Uam = float(self.session.registers['Monitor 1'].read())*5000
                     Ubm = float(self.session.registers['Monitor 2'].read())*5000
                     Ucm = float(self.session.registers['Monitor 3'].read())*5000
                     Udm = float(self.session.registers['Monitor 4'].read())*5000
-                    print(f"Voltage: {Uam}, {Ubm}, {Ucm}, {Udm}")
+                    if time.time() - current_time > 0.5:
+                        print("Timeout waiting for voltage update")
+                        print(f"Voltage: {Uam}, {Ubm}, {Ucm}, {Udm}")
+                        return 1, 0, 0, 0, 0
+                    threshold = max(max(Uam, Ubm, Ucm, Udm) * self.vthreshold, threshold_min)
                     if abs(Uam - Ua) < threshold and abs(Ubm - Ub) < threshold and abs(Ucm - Uc) < threshold and abs(Udm - Ud) < threshold:
                         print(f"Voltage updated: {Ua}, {Ub}, {Uc}, {Ud}")
                         self.fbVoltage.append([Uam, Ubm, Ucm, Udm])
@@ -114,9 +118,9 @@ class printer:
         if self.session is not None:
             try:
                 self.session.registers['Dispense Indicator'].write(True)
-                time.sleep(0.01)
+                time.sleep(self.dispenseInterval/2)
                 self.session.registers['Dispense Indicator'].write(False)
-                time.sleep(0.01)
+                time.sleep(self.dispenseInterval/2)
                 print("Dispense command executed")
                 return 0
             except Exception as e:
