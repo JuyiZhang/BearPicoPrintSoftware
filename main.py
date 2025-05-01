@@ -245,6 +245,7 @@ def save_dots():
 def switch_to_tab1():
     tab_control.select(tab1)
     global dots_array
+    printer_instance.clearCommand()
     if dots_array is not None:
         for dot in dots_array:
             Ua = dot[0]*10 - 2500
