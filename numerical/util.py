@@ -54,6 +54,8 @@ class printer:
         if self.bitfile == "Not Found":
             print("FPGA file not found")
             return 1
+        
+        print(f"FPGA file found: {self.bitfile}")
         self.session = nifpga.Session(self.bitfile, f"rio://{self.address}/RIO0")
         self.session.reset()
         self.session.run()
@@ -135,8 +137,9 @@ class printer:
             try:
                 self.session.registers['HV Enable'].write(True)
                 print("HV Enable command executed")
-                for command in self.command:
-                    print(f"Command: {command}")
+                for i in range(len(self.command)):
+                    command = self.command[i]
+                    print(f"Command: {command}, {i}/{len(self.command)}")
                     if self.updateVoltage(command[1], command[2], command[3], command[4])[0] == 0:
                         if self.dispense() == 0:
                             print("Dispense command executed")

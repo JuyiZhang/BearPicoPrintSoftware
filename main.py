@@ -187,7 +187,7 @@ def display_dxf(file_path):
         # get width and height of the array
         width = dots_array[:, 0].max() - dots_array[:, 0].min()
         height = dots_array[:, 1].max() - dots_array[:, 1].min()
-        print(f"Width: {width}, Height: {height}")
+        print(f"Width: {width}, Height: {height}. Dots: {len(dots_array)}")
         
 
     except Exception as e:
@@ -568,6 +568,37 @@ def open_printer_config():
     apply_button = ttk.Button(config, text="Apply", command=apply_config)
     apply_button.grid(row=4, column=0, columnspan=2, padx=10, pady=10)
 
+def open_print_config():
+    config = tk.Toplevel(root)
+    config.title("Print Configuration")
+    
+    tk.Label(config, text="Print Speed (Droplet/s):").grid(row=0, column=0, padx=10, pady=10)
+    entry_speed = ttk.Entry(config)
+    entry_speed.grid(row=1, column=0, padx=10, pady=10)
+    
+    entry_speed.insert(0, str(1/printer_instance.dispenseInterval))
+    
+    tk.Label(config, text="Voltage Threshold (Ratio):").grid(row=2, column=0, padx=10, pady=10)
+    entry_voltage = ttk.Entry(config)
+    entry_voltage.grid(row=3, column=0, padx=10, pady=10)
+    
+    entry_voltage.insert(0, str(printer_instance.vthreshold))
+    
+    def apply_print_config():
+        try:
+            speed_val = float(entry_speed.get())
+            voltage_val = float(entry_voltage.get())
+            global printer_instance
+            printer_instance.dispenseInterval = 1/speed_val
+            printer_instance.vthreshold = voltage_val
+            print(f"Print configured: Dispense Interval={printer_instance.dispenseInterval}, Voltage Threshold={printer_instance.vthreshold}")
+            config.destroy()
+        except Exception as e:
+            print("Invalid values:", e)
+        
+    apply_button = ttk.Button(config, text="Apply", command=apply_print_config)
+    apply_button.grid(row=4, column=0, columnspan=2, padx=10, pady=10)
+
 def open_connect():
     conn_window = tk.Toplevel(root)
     conn_window.title("Connect to Printer")
@@ -608,6 +639,12 @@ if __name__ == "__main__":
     connect_menu.add_command(label="Oval", command=printer_print_oval)
     connect_menu.add_command(label="Rectangle", command=printer_print_square)
     menubar.add_cascade(label="Generate", menu=connect_menu)
+    
+    print_menu = tk.Menu(menubar, tearoff=0)
+    print_menu.add_command(label="Start", command=start_print)
+    print_menu.add_command(label="Print Config", command=open_print_config)
+    menubar.add_cascade(label="Print", menu=print_menu)
+    
 
     root.config(menu=menubar)
     # ------------------------
@@ -628,38 +665,44 @@ if __name__ == "__main__":
     frame1 = ttk.Frame(tab1)
     frame1.pack(padx=10, pady=10, fill='both', expand=True)
 
+    label_fpga_output = ttk.Label(frame1, text="Real-time View")
+    label_fpga_output.grid(row=0, column=0, sticky='w', pady=5)
+
     camera_label = ttk.Label(frame1)
-    camera_label.grid(row=0, column=0, columnspan=2, pady=10)
+    camera_label.grid(row=1, column=0, rowspan=3, pady=10, padx=10)
 
     label_fpga_output = ttk.Label(frame1, text="FPGA Output")
-    label_fpga_output.grid(row=1, column=0, columnspan=2, sticky='w', pady=5)
+    label_fpga_output.grid(row=0, column=1, sticky='nsew', pady=5)
 
     text_fpga_output = tk.Text(frame1, height=8, width=50)
-    text_fpga_output.grid(row=2, column=0, columnspan=2, padx=0, pady=(0, 10), sticky='ew')
+    text_fpga_output.grid(row=1, column=1, columnspan=2, padx=0, pady=(0, 10), sticky='nsew')
     
     label_fpga_command = ttk.Label(frame1, text="FPGA Command")
-    label_fpga_command.grid(row=3, column=0, columnspan=2, sticky='w', pady=5)
+    label_fpga_command.grid(row=2, column=1, columnspan=2, sticky='w', pady=5)
 
     text_fpga_command = tk.Text(frame1, height=8, width=50)
-    text_fpga_command.grid(row=4, column=0, columnspan=2, padx=0, pady=(0, 10), sticky='ew')
+    text_fpga_command.grid(row=3, column=1, columnspan=2, padx=0, pady=(0, 10), sticky='nsew')
 
     label_custom_control = ttk.Label(frame1, text="Custom Control")
-    label_custom_control.grid(row=5, column=0, columnspan=2, sticky='w', pady=5)
+    label_custom_control.grid(row=4, column=1, sticky='w', pady=5)
 
     frame1.grid_columnconfigure(0, weight=1)
 
     entry1 = ttk.Entry(frame1)
-    entry1.grid(row=6, column=0, padx=(0, 20), sticky='ew')
+    entry1.grid(row=5, column=1, padx=(0, 20), sticky='ew')
 
     button1 = ttk.Button(frame1, text="Execute", command=print_input)
-    button1.grid(row=6, column=1, sticky='e')
+    button1.grid(row=5, column=2, sticky='e')
     
     button_start_print = ttk.Button(frame1, text="Start Printing", command=start_print)
-    button_start_print.grid(row=7, column=0, columnspan=2, sticky='ew', pady=10)
+    button_start_print.grid(row=4, column=0, rowspan=2, sticky='nsew', pady=0, padx=10)
 
     # --- Inline Printer Configuration Display in Tab 1 ---
     printer_config_panel = ttk.LabelFrame(frame1, text="Current Printer Configuration")
-    printer_config_panel.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
+    printer_config_panel.grid(row=6, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
+    
+    printer_config_button = ttk.Button(frame1, text="Printer Config", command=open_printer_config)
+    printer_config_button.grid(row=6, column=2, padx=10, pady=10)
 
     printer_config_value = tk.StringVar()
     def update_printer_config_display():
@@ -669,6 +712,12 @@ if __name__ == "__main__":
 
     config_display_label = ttk.Label(printer_config_panel, textvariable=printer_config_value)
     config_display_label.grid(row=0, column=0, padx=10, pady=10)
+    
+    global progress
+    progress = tk.IntVar()
+    progress_bar = ttk.Progressbar(frame1, variable=progress)
+    progress_bar.grid(row=7, column=0, columnspan=3, padx=10, pady=10, sticky='ew')
+    # set progress bar to waiting
 
     # Tab 2
     frame2 = ttk.Frame(tab2)
