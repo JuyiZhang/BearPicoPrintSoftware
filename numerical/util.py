@@ -1,6 +1,8 @@
 import time
 import nifpga
 import os
+import tkinter as tk
+from tkinter import ttk
 from FPGA import find_fpga_file
 
 
@@ -95,7 +97,6 @@ class printer:
                 self.session.registers['Control 4'].write(Ud)
                 current_time = time.time()
                 while True:
-                    
                     Uam = float(self.session.registers['Monitor 1'].read())*5000
                     Ubm = float(self.session.registers['Monitor 2'].read())*5000
                     Ucm = float(self.session.registers['Monitor 3'].read())*5000
@@ -132,21 +133,49 @@ class printer:
             print("Session is not connected")
             return 1
     
-    def beginPrint(self):
+    def beginPrint(self, progressbar:ttk.Progressbar = None, outputbox:tk.Text = None):
         if self.session is not None:
             try:
                 self.session.registers['HV Enable'].write(True)
                 print("HV Enable command executed")
                 for i in range(len(self.command)):
                     command = self.command[i]
-                    print(f"Command: {command}, {i}/{len(self.command)}")
-                    if self.updateVoltage(command[1], command[2], command[3], command[4])[0] == 0:
+                    if progressbar is not None:
+                        progressbar['value'] = (i+1)/len(self.command)*100
+                        progressbar.update()
+                    
+                    if outputbox is not None:
+                        execute_ts = time.time()
+                        outputbox.insert("end", f"EXEC {command} {execute_ts}\n")
+                        outputbox.see("end")
+                    update_rtn, Uam, Ubm, Ucm, Udm = self.updateVoltage(command[1], command[2], command[3], command[4])
+                    if outputbox is not None:
+                        execute_ts = time.time()
+                        outputbox.insert("end", f"MONI VOLT {Uam} {Ubm} {Ucm} {Udm} {execute_ts}\n")
+                        outputbox.see("end")
+                    if update_rtn == 0:
+                        if outputbox is not None:
+                            execute_ts = time.time()
+                            outputbox.insert("end", f"DISP BEGI {execute_ts}\n")
+                            outputbox.see("end")
                         if self.dispense() == 0:
+                            if outputbox is not None:
+                                execute_ts = time.time()
+                                outputbox.insert("end", f"DISP OKAY {execute_ts}\n")
+                                outputbox.see("end")
                             print("Dispense command executed")
                         else:
+                            if outputbox is not None:
+                                execute_ts = time.time()
+                                outputbox.insert("end", f"DISP ERRO {execute_ts}\n")
+                                outputbox.see("end")
                             print("Error dispensing")
                             return 1
                     else:
+                        if outputbox is not None:
+                            execute_ts = time.time()
+                            outputbox.insert("end", f"MONI ERRO {execute_ts}\n")
+                            outputbox.see("end")
                         print("Error updating voltage")
                         return 1
                 self.session.registers['HV Enable'].write(False)
@@ -242,7 +271,7 @@ class printer:
     def __del__(self):
         self.closeSession()
     
-    def executeCommand(self, in_command = []):
+    def executeCommand(self, in_command = [], progressbar = None, outputbox = None):
         
         if in_command != []:
             self.command = in_command

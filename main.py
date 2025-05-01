@@ -676,6 +676,7 @@ if __name__ == "__main__":
 
     text_fpga_output = tk.Text(frame1, height=8, width=50)
     text_fpga_output.grid(row=1, column=1, columnspan=2, padx=0, pady=(0, 10), sticky='nsew')
+
     
     label_fpga_command = ttk.Label(frame1, text="FPGA Command")
     label_fpga_command.grid(row=2, column=1, columnspan=2, sticky='w', pady=5)
@@ -713,9 +714,7 @@ if __name__ == "__main__":
     config_display_label = ttk.Label(printer_config_panel, textvariable=printer_config_value)
     config_display_label.grid(row=0, column=0, padx=10, pady=10)
     
-    global progress
-    progress = tk.IntVar()
-    progress_bar = ttk.Progressbar(frame1, variable=progress)
+    progress_bar = ttk.Progressbar(frame1)
     progress_bar.grid(row=7, column=0, columnspan=3, padx=10, pady=10, sticky='ew')
     # set progress bar to waiting
 
