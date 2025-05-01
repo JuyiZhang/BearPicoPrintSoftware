@@ -242,10 +242,13 @@ def save_dots():
         os.remove("dots.npy")
         print(f"Saved to {save_path}")
 
+
+
 def switch_to_tab1():
     tab_control.select(tab1)
     global dots_array
     printer_instance.clearCommand()
+    text_fpga_command.delete(1.0, tk.END)
     if dots_array is not None:
         for dot in dots_array:
             Ua = dot[0]*10 - 2500
@@ -309,7 +312,7 @@ def generate_pattern_to_print():
             print_cmd_single_line = f"DISP NORM {voltages[2]} {voltages[3]} {voltages[4]} {voltages[5]}"
             text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
     
-    switch_to_tab1()  # Switch to tab 1 after generating the pattern
+    tab_control.select(tab1)  # Switch to tab 1 after generating the pattern
 
     # Generate the calibration pattern
 
@@ -382,7 +385,7 @@ def printer_print_line():
                 print_cmd_single_line = f"DISP NORM 0 0 0 {i*line_step+line_min}"
             text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
         
-        switch_to_tab1()
+        tab_control.select(tab1)
         print(printer_instance.command)
         line_window.destroy()
         
@@ -445,7 +448,7 @@ def printer_print_oval():
                 printer_instance.addCommand(0, 0, x_pos + haxis_length*np.cos(np.radians(i)), y_pos + vaxis_length*np.sin(np.radians(i)))
                 print_cmd_single_line = f"DISP NORM 0 0 {x_pos + haxis_length*np.cos(np.radians(i))} {y_pos + vaxis_length*np.sin(np.radians(i))}"
             text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
-        switch_to_tab1()
+        tab_control.select(tab1)
         print(printer_instance.command)
         oval_window.destroy()
     # add a button to execute the oval command
@@ -516,7 +519,7 @@ def printer_print_square():
                     printer_instance.addCommand(0, 0, i*hstep+hmin, j*vstep+vmin)
                     print_cmd_single_line = f"DISP NORM 0 0 {i*hstep+hmin} {j*vstep+vmin}"
                 text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
-        switch_to_tab1()
+        tab_control.select(tab1)
         print(printer_instance.command)
         square_window.destroy()
     # add a button to execute the oval command
