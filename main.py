@@ -24,9 +24,9 @@ printer_instance = printer(15, 10)   # default values
 print_command = ""
 calibration_voltages = []
 
-def start_print():
-    print("Starting print...")
-    printer_instance.executeCommand()
+def start_print(progressbar=None, outputbox=None):
+    print("Starting print1...")
+    printer_instance.executeCommand(progressbar=progressbar, outputbox=outputbox)
 
 def print_input():
     user_input = entry1.get()
@@ -262,7 +262,7 @@ def switch_to_tab1():
                 Ub = 0
                 Ud = 2500 - dot[1]*10
             printer_instance.addCommand(Ua, Ub, Uc, Ud)
-            print_cmd_single_line = f"DISP NORM {Ua} {Ub} {Uc} {Ud}"
+            print_cmd_single_line = f"DISP NORM {Ua:.2f} {Ub:.2f} {Uc:.2f} {Ud:.2f}"
             text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
 
 def generate_pattern_to_print():
@@ -309,7 +309,7 @@ def generate_pattern_to_print():
             
             printer_instance.addCommand(voltages[2], voltages[3], voltages[4], voltages[5])
             calibration_voltages.append([voltages[0],voltages[1]])
-            print_cmd_single_line = f"DISP NORM {voltages[2]} {voltages[3]} {voltages[4]} {voltages[5]}"
+            print_cmd_single_line = f"DISP NORM {voltages[2]:.2f} {voltages[3]:.2f} {voltages[4]:.2f} {voltages[5]:.2f}"
             text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
     
     tab_control.select(tab1)  # Switch to tab 1 after generating the pattern
@@ -435,18 +435,20 @@ def printer_print_oval():
         step = float(step_entry.get())
         axis = oval_axis_var.get()
         for i in range(int(360/step)):
+            xval = x_pos + haxis_length*np.cos(np.radians(i))
+            yval = y_pos + vaxis_length*np.sin(np.radians(i))
             if oval_axis_var.get() == "A-B":
-                printer_instance.addCommand(x_pos + haxis_length*np.cos(np.radians(i)), y_pos + vaxis_length*np.sin(np.radians(i)), 0, 0)
-                print_cmd_single_line = f"DISP NORM {x_pos + haxis_length*np.cos(np.radians(i))} {y_pos + vaxis_length*np.sin(np.radians(i))} 0 0"
+                printer_instance.addCommand(xval, yval, 0, 0)
+                print_cmd_single_line = f"DISP NORM {xval:.2f} {yval:.2f} 0 0"
             elif oval_axis_var.get() == "A-D":
-                printer_instance.addCommand(x_pos + haxis_length*np.cos(np.radians(i)), 0, 0, y_pos + vaxis_length*np.sin(np.radians(i)))
-                print_cmd_single_line = f"DISP NORM {x_pos + haxis_length*np.cos(np.radians(i))} 0 0 {y_pos + vaxis_length*np.sin(np.radians(i))}"
+                printer_instance.addCommand(xval, 0, 0, yval)
+                print_cmd_single_line = f"DISP NORM {xval:.2f} 0 0 {yval:.2f}"
             elif oval_axis_var.get() == "C-B":
-                printer_instance.addCommand(0, x_pos + haxis_length*np.cos(np.radians(i)), y_pos + vaxis_length*np.sin(np.radians(i)), 0)
-                print_cmd_single_line = f"DISP NORM 0 {x_pos + haxis_length*np.cos(np.radians(i))} {y_pos + vaxis_length*np.sin(np.radians(i))} 0"
+                printer_instance.addCommand(0, xval, yval, 0)
+                print_cmd_single_line = f"DISP NORM 0 {xval:.2f} {yval:.2f} 0"
             elif oval_axis_var.get() == "C-D":
-                printer_instance.addCommand(0, 0, x_pos + haxis_length*np.cos(np.radians(i)), y_pos + vaxis_length*np.sin(np.radians(i)))
-                print_cmd_single_line = f"DISP NORM 0 0 {x_pos + haxis_length*np.cos(np.radians(i))} {y_pos + vaxis_length*np.sin(np.radians(i))}"
+                printer_instance.addCommand(0, 0, xval, yval)
+                print_cmd_single_line = f"DISP NORM 0 0 {xval:.2f} {yval:.2f}"
             text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
         tab_control.select(tab1)
         print(printer_instance.command)
@@ -645,7 +647,7 @@ if __name__ == "__main__":
     menubar.add_cascade(label="Generate", menu=connect_menu)
     
     print_menu = tk.Menu(menubar, tearoff=0)
-    print_menu.add_command(label="Start", command=start_print)
+    print_menu.add_command(label="Start", command=lambda: start_print(progress_bar, text_fpga_output))
     print_menu.add_command(label="Print Config", command=open_print_config)
     menubar.add_cascade(label="Print", menu=print_menu)
     
@@ -699,7 +701,7 @@ if __name__ == "__main__":
     button1 = ttk.Button(frame1, text="Execute", command=print_input)
     button1.grid(row=5, column=2, sticky='e')
     
-    button_start_print = ttk.Button(frame1, text="Start Printing", command=start_print)
+    button_start_print = ttk.Button(frame1, text="Start Printing", command=lambda: start_print(progress_bar, text_fpga_output))
     button_start_print.grid(row=4, column=0, rowspan=2, sticky='nsew', pady=0, padx=10)
 
     # --- Inline Printer Configuration Display in Tab 1 ---

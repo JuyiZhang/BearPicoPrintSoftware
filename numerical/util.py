@@ -146,22 +146,22 @@ class printer:
                     
                     if outputbox is not None:
                         execute_ts = time.time()
-                        outputbox.insert("end", f"EXEC {command} {execute_ts}\n")
+                        outputbox.insert("end", f"EXEC {command} {execute_ts:.2f}\n")
                         outputbox.see("end")
                     update_rtn, Uam, Ubm, Ucm, Udm = self.updateVoltage(command[1], command[2], command[3], command[4])
                     if outputbox is not None:
                         execute_ts = time.time()
-                        outputbox.insert("end", f"MONI VOLT {Uam} {Ubm} {Ucm} {Udm} {execute_ts}\n")
+                        outputbox.insert("end", f"MONI VOLT {Uam:.2f} {Ubm:.2f} {Ucm:.2f} {Udm:.2f} {execute_ts:.2f}\n")
                         outputbox.see("end")
                     if update_rtn == 0:
                         if outputbox is not None:
                             execute_ts = time.time()
-                            outputbox.insert("end", f"DISP BEGI {execute_ts}\n")
+                            outputbox.insert("end", f"DISP BEGI {execute_ts:.2f}\n")
                             outputbox.see("end")
                         if self.dispense() == 0:
                             if outputbox is not None:
                                 execute_ts = time.time()
-                                outputbox.insert("end", f"DISP OKAY {execute_ts}\n")
+                                outputbox.insert("end", f"DISP OKAY {execute_ts:.2f}\n")
                                 outputbox.see("end")
                             print("Dispense command executed")
                         else:
@@ -275,5 +275,5 @@ class printer:
         
         if in_command != []:
             self.command = in_command
-        self.beginPrint()
+        self.beginPrint(progressbar=progressbar, outputbox=outputbox)
             
