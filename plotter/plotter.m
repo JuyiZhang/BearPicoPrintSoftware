@@ -1,6 +1,6 @@
 % filepath: /Users/arkr/Documents/Coursework/SP 2025/Capstone/BearPicoPrintSoftware/plotter/plotter.m
 % Read the CSV file into a table (ignoring comment lines)
-tbl = readtable('data.csv', 'Delimiter', 'comma');
+tbl = readtable('data_new.csv', 'Delimiter', 'comma');
 
 % Filter out rows with invalid data based on the Validity column
 validRows = strcmp(tbl.Validity, 'Valid');

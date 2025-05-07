@@ -46,12 +46,11 @@ signal.signal(signal.SIGINT, kill_handler)
 signal.signal(signal.SIGTERM, kill_handler)
 
 def open_file_dialog():
-    
     # if using mac
     if platform.system() == "Darwin":
         file_path = filedialog.askopenfilename()
     else:
-        file_path = filedialog.askopenfilename(filetypes=[("DXF and B3P files", "*.dxf;*.b3p")])
+        file_path = filedialog.askopenfilename(filetypes=[("DXF, PNG and B3P files", "*.dxf;*.png;*.b3p")])
     if file_path:
         global original_dxf_file
         if file_path.endswith('.b3p'):
@@ -64,10 +63,13 @@ def open_file_dialog():
                 dots_array = np.load(npy_file)
                 os.remove(npy_file)
                 original_dxf_file = dxf_file
+        elif file_path.lower().endswith('.png'):
+            display_png(file_path)
+            original_dxf_file = file_path
         else:
             display_dxf(file_path)
             original_dxf_file = file_path
-        # set entry 2 text to file path
+        # set entry2 text to file path
         entry2.delete(0, tk.END)
         entry2.insert(0, file_path)
 
@@ -193,6 +195,63 @@ def display_dxf(file_path):
     except Exception as e:
         print(f"Error reading DXF file: {e}")
 
+def display_png(file_path):
+    try:
+        print(f"Reading PNG file: {file_path}")
+        img = Image.open(file_path)
+        canvas.delete("all")
+        
+        # Get canvas dimensions
+        canvas_width = canvas.winfo_width()
+        canvas_height = canvas.winfo_height()
+        img_width, img_height = img.size
+        
+        # Scale image to fit canvas while preserving aspect ratio and applying image_scale
+        scale_factor = min(canvas_width / img_width, canvas_height / img_height) * image_scale
+        new_width = int(img_width * scale_factor)
+        new_height = int(img_height * scale_factor)
+        resized_img = img.resize((new_width, new_height))
+        photo = ImageTk.PhotoImage(resized_img)
+        
+        # Center image on canvas and apply global offsets
+        x_center = canvas_width / 2 + image_offset_x
+        y_center = canvas_height / 2 + image_offset_y
+        canvas.create_image(x_center, y_center, image=photo, anchor='center')
+        canvas.photo = photo  # prevent garbage collection
+        
+        # Calculate top-left corner coordinates of the displayed image
+        top_left_x = x_center - new_width / 2
+        top_left_y = y_center - new_height / 2
+        
+        # Overlay dots in a grid across the image area
+        global dots
+        dots = []
+        # Use dot_distance as the grid spacing (ensure a minimum step of 1 pixel)
+        step = int(dot_distance) if dot_distance >= 1 else 1
+        for x in range(0, new_width, step):
+            for y in range(0, new_height, step):
+                # get the pixel data from the image
+                pixel = resized_img.getpixel((x, y))
+                print(f"Pixel at ({x}, {y}): {pixel}")
+                # check if the pixel is not white
+                if pixel[3] != 0:
+                    # draw a dot on the canvas
+                    dot_x = top_left_x + x
+                    dot_y = top_left_y + y
+                    canvas.create_oval(dot_x - 2, dot_y - 2, dot_x + 2, dot_y + 2, fill='red')
+                    dots.append([dot_x, dot_y])
+        
+        global dots_array
+        dots_array = np.array(dots)
+        if len(dots_array) > 0:
+            grid_width = dots_array[:, 0].max() - dots_array[:, 0].min()
+            grid_height = dots_array[:, 1].max() - dots_array[:, 1].min()
+        else:
+            grid_width = grid_height = 0
+        print(f"PNG image displayed with grid dots. Grid width: {grid_width}, height: {grid_height}. Total dots: {len(dots)}")
+    except Exception as e:
+        print(f"Error reading PNG file: {e}")
+
 def update_dot_distance(value):
     slider_label.config(text=f"Dot Distance: {float(value):.2f}")
     global dot_distance
@@ -203,6 +262,8 @@ def update_dot_distance(value):
             with zipfile.ZipFile(file_path, 'r') as zipf:
                 dxf_file = [f for f in zipf.namelist() if f.endswith('.dxf')][0]
                 display_dxf(dxf_file)
+        elif file_path.lower().endswith('.png'):
+            display_png(file_path)
         else:
             display_dxf(file_path)
 
@@ -216,6 +277,8 @@ def update_image_scale(value):
             with zipfile.ZipFile(file_path, 'r') as zipf:
                 dxf_file = [f for f in zipf.namelist() if f.endswith('.dxf')][0]
                 display_dxf(dxf_file)
+        elif file_path.lower().endswith('.png'):
+            display_png(file_path)
         else:
             display_dxf(file_path)
 
@@ -229,6 +292,8 @@ def move_image(dx, dy):
             with zipfile.ZipFile(file_path, 'r') as zipf:
                 dxf_file = [f for f in zipf.namelist() if f.endswith('.dxf')][0]
                 display_dxf(dxf_file)
+        elif file_path.lower().endswith('.png'):
+            display_png(file_path)
         else:
             display_dxf(file_path)
 
