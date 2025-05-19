@@ -314,8 +314,17 @@ def switch_to_tab1():
     global dots_array
     printer_instance.clearCommand()
     text_fpga_command.delete(1.0, tk.END)
+    
     if dots_array is not None:
         for dot in dots_array:
+            if printer_instance.calibrationType == 'C' or printer_instance.calibrationType == 'B':
+                Ux, Uy, Ua, Ub, Uc, Ud, result = printer_instance.toUCoordCalibrated(dot[0]/100, dot[1]/100) # coordinate is set to be 5mmx5mm, need actual data to check
+                if result != 1:
+                    printer_instance.addCommand(Ua, Ub, Uc, Ud)
+                    print_cmd_single_line = f"DISP NORM {Ua} {Ub} {Uc} {Ud}"
+                    text_fpga_command.insert(tk.END, print_cmd_single_line + "\n")
+                    continue
+                    
             Ua = dot[0]*10 - 2500
             Uc = 0
             if Ua < 0:
@@ -686,6 +695,10 @@ def open_connect():
     apply_button = ttk.Button(conn_window, text="Apply", command=apply_address)
     apply_button.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
 
+def open_calibration_setting():
+    tab_control.select(tab_calibration)
+    print("Switched to Calibration tab.")
+
 if __name__ == "__main__":
     
     if platform.system() != "Darwin":
@@ -712,6 +725,7 @@ if __name__ == "__main__":
     print_menu = tk.Menu(menubar, tearoff=0)
     print_menu.add_command(label="Start", command=start_print)
     print_menu.add_command(label="Print Config", command=open_print_config)
+    print_menu.add_command(label="Calibration Setting", command=open_calibration_setting)
     menubar.add_cascade(label="Print", menu=print_menu)
     
 
@@ -843,15 +857,36 @@ if __name__ == "__main__":
     frame_calibration = ttk.Frame(tab_calibration)
     frame_calibration.pack(padx=10, pady=10, fill='both', expand=True)
     
+    calibration_type_label = ttk.Label(frame_calibration, text="Calibration Type:")
+    calibration_type_label.grid(row=0, column=0, pady=5, sticky='w')
+
+    calibration_type_var = tk.StringVar(value="None")
+    calibration_type_dropdown = ttk.Combobox(frame_calibration, textvariable=calibration_type_var,
+                                            values=["None", "Voltage", "Coordinate", "Both"])
+    calibration_type_dropdown.grid(row=0, column=1, pady=5, sticky='ew', columnspan=2)
+
+    def on_calibration_type_change(event):
+        selection = calibration_type_var.get()
+        mapping = {
+            "None": "N",
+            "Voltage": "V",
+            "Coordinate": "C",
+            "Both": "B"
+        }
+        printer_instance.setEnableCalibration(mapping.get(selection, "N"))
+        print(f"Calibration type set to: {selection}")
+
+    calibration_type_dropdown.bind("<<ComboboxSelected>>", on_calibration_type_change)
+    
     # Add calibration widgets here
     calibration_label = ttk.Label(frame_calibration, text="Calibration Grid Size   ")
-    calibration_label.grid(row=0, column=0, pady=5, sticky='w')
+    calibration_label.grid(row=1, column=0, pady=5, sticky='w')
     
     #add spacing between widgets
-    ttk.Label(frame_calibration, text="  ").grid(row=0, column=1)
+    ttk.Label(frame_calibration, text="  ").grid(row=1, column=1)
     
     generate_pattern_button = ttk.Button(frame_calibration, text="Send to Printer", command=generate_pattern_to_print)
-    generate_pattern_button.grid(row=0, column=2, pady=5, sticky='e')
+    generate_pattern_button.grid(row=1, column=2, pady=5, sticky='e')
     
     
 
@@ -859,17 +894,17 @@ if __name__ == "__main__":
     calibration_var = tk.StringVar(value=calibration_options[0])
 
     calibration_dropdown = ttk.Combobox(frame_calibration, textvariable=calibration_var, values=calibration_options)
-    calibration_dropdown.grid(row=1, column=0, columnspan=3, pady=5, sticky='ew')
+    calibration_dropdown.grid(row=2, column=0, columnspan=3, pady=5, sticky='ew')
     
     calibration_pattern_distance_label = ttk.Label(frame_calibration, text="Pattern Distance (mm)")
-    calibration_pattern_distance_label.grid(row=2, column=0, columnspan=2, pady=5, sticky='w')
+    calibration_pattern_distance_label.grid(row=3, column=0, columnspan=2, pady=5, sticky='w')
     
     calibration_pattern_distance_entry = ttk.Entry(frame_calibration)
-    calibration_pattern_distance_entry.grid(row=2, column=2, pady=5, sticky='ew')
+    calibration_pattern_distance_entry.grid(row=3, column=2, pady=5, sticky='ew')
     calibration_pattern_distance_entry.insert(0, "10")
     
     frame_calibration_input = ttk.Frame(frame_calibration)
-    frame_calibration_input.grid(row=3, column=0, columnspan=3, pady=5, sticky='w')
+    frame_calibration_input.grid(row=4, column=0, columnspan=3, pady=5, sticky='w')
     
     def save_calibration():
         calibration_data = []
@@ -880,7 +915,7 @@ if __name__ == "__main__":
         # You can save calibration_data to a file or process it as needed
     
     save_calibration_button = ttk.Button(frame_calibration, text="Save Calibration", command=save_calibration)
-    save_calibration_button.grid(row=4, column=0, columnspan=3, pady=5, sticky='ew')
+    save_calibration_button.grid(row=5, column=0, columnspan=3, pady=5, sticky='ew')
     
     
     def create_calibration_grid(size):
